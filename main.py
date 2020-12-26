@@ -1,23 +1,24 @@
 from flask import Flask, send_file, render_template, redirect, request, url_for
-import psycopg2
+import secrets
+from connect import query_reservas
 
 app = Flask(__name__)
-conn = psycopg2.connect(host="localhost", database="cyrela", user="postgres", password="1234143213")
 
-@app.route('/', methods=["GET", "POST"])
+
+@app.route('/')
 def home():
-    if request.method == "POST":
-        file = get_reservas()
-        return redirect(url_for('home'))
-    else:
-        return render_template("index.html")
+    return render_template("index.html")
 
 
+@app.route('/reservas')
 def get_reservas():
-    print('querying')
-    print('making excel')
-    #query no postgres
-    #transform in excel
+    if request.form.get('reservas_key') == secrets.RESERVAS_KEY:
+
+        print('making excel')
+        print('returning file')
+        print('redirect to home')
+    else:
+        return jsonify({"error": "Sorry, that's not allowed. Make sure you have the correct key"}), 403
 
 
 if __name__ == "__main__":

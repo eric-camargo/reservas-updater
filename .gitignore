@@ -143,3 +143,5 @@ cython_debug/
 database.ini
 
 .idea/
+
+secrets.py
