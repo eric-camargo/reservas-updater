@@ -139,11 +139,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Database Credentials
-database.ini
-
 .idea/
 
 secrets.py
-*.xlsx
-google-api.json

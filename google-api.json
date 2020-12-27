@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "reservas-seller",
+  "private_key_id": "a271fe51eb34b2d575570010ed0da8f39ff2257c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC9kwdyjYRnfsRL\nBMDR7UakrPjH1473Per5iB5kI231uCLvbaA7VRRY3AhCPEz2qqES8xzUoQUnT8Zl\nEdQx85tRQRvmM59FphDI6X6BpXJ7wpTjBgI1tnva2Fcm5RwSbyPCD4MLkxme1Kwn\nLUh4AH+Ypx0pZ1lAQssazuGcuhltYugmj7EFxYLUPhyE04zx6FtWEJ/eUq9Fe/uI\nEow+46RNPJtPW6H3czKD7YO9uGNebHFPKKvUSuDC9juJFympR1+nSOOjNYLnJquk\nDzcrJ+HgjtlgDgkLbD++PDrg5VYHLb0IetZYWLJF3Tex3IigB268paLk2yNahj5G\ngcKFO3s1AgMBAAECggEAHDKGZQ+PpiVA5Terxo3YeB4SUwdJCJV5IeyROKvcazQc\nXiicMLcS87SmtdNqTzZKBxuKKkZZEePXyqjAOz3U2F0q3S7Iff+Zd4jjfD0zrhzf\nMHVwVrTx7zdGn05swoEtfGv6Pfp/URSpFpqxsMfCMt6Ig+QPbnOA6lfjTwCPT6mo\nVnXvBS2CaJ9Smta3nj0oR/0WpJz3It5U+sULnRMmTrQGo7brmprbnOXNvQbXA3vY\n/kHWLfrD3JHJMbBXGHcd5VS1p1eQWOWVuSE+mVvqsIwxO7u2wbFOH63gUpRta4YZ\nPgNzaqfKCutOfCj1DcdV8D1dyCM42Uwyqwf0UFbfAQKBgQD9noWAXIa3MVD7vl8C\nHQcVbSfcqjFIDORG1lil+2/qgJq7H4uPow7bwvhkAGcijKdW4d8ZGw6w1ve3u8S1\na0icAr8MwKDynEYx4sDZO6+vL/pKewkyXfl0kpOQaWtTLxlqz9SZX5qM8PMurl/2\nbGeYuPBJkm+3yBPqd9IcU9aIRQKBgQC/WpmKZQ5GRotZcaW+syOzp23JxuRFtyLK\n1Ix03KSxqXw7y3Ol4YK+i/n98e5MNWJzjoNWbmqsvEJvHx0RyrNHQU4zApZ2cFP1\nbez+zKIBaRKRau3fdu1jdo64HGGI/ZgHvWkrDu22wDyrpANrePH9hfwz4rpjyPBH\npGNm8mMuMQKBgA8+TuHXLdWm5iorWASFgB5+kA3IQOwGslW7nlpjkWdz0Vj73WSF\ntWfqAQnpqElAUPJ84u7cXHauhPcLFxicWSHfXGJE1aefUuy+pz6nQrjx1kZRvMzF\nLzAdezcLzwKR6yIrWajaQSzFcqhUnLnv7A4W14JkhchzAxdtmjhPpa5NAoGAYEbn\nZdh+nCE2T6R8rjxXxDaDaLhndiQ0nzTeDpZNTw5lcXhmEZorPFAVUg39xd4+UMHt\nlvkrNwnpqxtOdvszxLA49jVhGupdc+kBCxpOkMMbEotob7zYp+io2j19XX2qlopY\ndc+nDwIeBIYbKmHJ77MQN9Ll0Pry2jj9wnhGKqECgYBKWyEWmUuZGyv2Z6WhVVYJ\nvH8AUD0n2BveQwUPhyYaIgq4CzLg8dBMEiuUn/UGgG/MDq2SoVKKQl3y8b/ggbrH\n2z90/4unf0o7lFTD/tR9QMk94NwxI1C58dW/gMphyB4ZY/91IOIbPrU6VsuTfaeU\ndSWgVhFhgu5fOUz6EUZd+g==\n-----END PRIVATE KEY-----\n",
+  "client_email": "reservas-auto-filler@reservas-seller.iam.gserviceaccount.com",
+  "client_id": "106078633357374261172",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/reservas-auto-filler%40reservas-seller.iam.gserviceaccount.com"
+}
