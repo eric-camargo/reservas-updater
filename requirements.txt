@@ -22,4 +22,3 @@ WTForms==2.3.3
 psycopg2==2.8.6
 gspread==3.6.0
 pandas==1.1.5
-json==2.0.9
