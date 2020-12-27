@@ -1,13 +1,14 @@
-from flask import Flask, send_file, render_template, redirect, request, url_for
-import secrets
+from flask import Flask, render_template, redirect, request, url_for
 import connect
 import pandas as pd
 import datetime
 import time
 import json
 from constants import *
+import gspread
 
 app = Flask(__name__)
+gc = gspread.service_account()
 
 wait_time_in_minutes = 5
 wait_time_in_seconds = 60 * wait_time_in_minutes
@@ -18,29 +19,118 @@ def home():
     return render_template("index.html")
 
 
+@app.route('/reservas')
+def get_reservas():
+    if start_update():
+        return redirect(url_for('downloaded'))
+    else:
+        return redirect(url_for('try_later'))
+
+
 @app.route('/tente-mais-tarde')
 def try_later():
     return render_template("too-soon.html", wait=wait_time_in_minutes)
 
 
-@app.route('/reservas')
-def get_reservas():
-    if request.form.get('reservas_key') == secrets.RESERVAS_KEY:
-        timestamp = get_timestamp()
-        if not is_too_soon(timestamp[1]):
-            reservas_data = connect.query_reservas()
-            log_to_json(reservas_data, timestamp)
-            file = excel_maker(reservas_data, timestamp[0])
-            print('redirect to home')
-        else:
-            return redirect(url_for('try_later'))
+@app.route('/atualizado')
+def downloaded():
+    return render_template("download.html")
+
+
+def is_too_soon(new_request_time):
+    """ Returns True if it is Too Soon to call again """
+    with open(LOG_FILE) as f:
+        json_data = json.load(f)
+    last_request_time = int(json_data['logs'][-1][EPOCH_TIME])
+    if new_request_time - last_request_time < wait_time_in_seconds:
+        # returns True because it is too soon
+        return True
     else:
-        return jsonify({"error": "Sorry, that's not allowed. Make sure you have the correct key"}), 403
+        return False
 
 
-def excel_maker(data, time):
+def get_timestamp():
+    """ Returns the timestamp from Now """
+    now = datetime.datetime.now()
+    return [datetime.datetime.strftime(now, '%d/%m %Hh%M'), time.time()]
+
+
+def log_to_json(response, timestamp):
+    """ Salva todas requisições num Log """
+    new_data = {
+        EPOCH_TIME: timestamp[1],
+        TIMESTAMP: timestamp[0],
+        RESPONSE: response,
+    }
+
+    with open(LOG_FILE) as f:
+        json_data = json.load(f)
+        with open("backup-log.json", "w") as b_file:
+            json.dump(json_data, b_file, indent=4)
+        temp = json_data["logs"]
+        temp.append(new_data)
+
+    with open(LOG_FILE, 'w') as f:
+        json.dump(json_data, f, indent=4)
+
+
+def start_update():
+    """ Returns True if started the Update """
+    timestamp = get_timestamp()
+    if not is_too_soon(timestamp[1]):
+        update_data(timestamp)
+        return True
+    else:
+        return False
+
+
+def update_data(stamp):
+    # Fazendo query no banco de dados para extrair valores
+    reservas_data = connect.query_reservas()
+
+    # Tratamento para erro de Datetime. Transformando datetime em string
+    new_reservas = []
+    for reserva in reservas_data:
+        temp_reserva = []
+        for data in reserva:
+            if isinstance(data, datetime.time):
+                data = data.strftime('%Hh%M')
+            temp_reserva.append(data)
+        tup_temp = tuple(temp_reserva)
+        new_reservas.append(tup_temp)
+    reservas_data = new_reservas
+
+    # Nome do arquivo onde ficará salvo o response da query
+    response_filename = f'{round(stamp[1])}.txt'
+    # Salvando response na pasta de response_files
+    with open(f'./response_files/{response_filename}', 'w') as f:
+        f.write(str(reservas_data))
+
+    # Criando novo log com os dados do request e arquivo correspondente
+    log_to_json(response_filename, stamp)
+
+    # Transforma os dados do DB em DataFrame Pandas
+    google_uploader(reservas_data, stamp[0])
+
+
+def google_uploader(data, timestamp):
+    """ Gets DataFrame and uploads to Google Sheet"""
+    df = make_df(data)
+    attempt = 1
+    try:
+        sh = gc.open("Reservas Seller")
+        new_worksheet = sh.add_worksheet(title=f"{timestamp}", rows="4000", cols="15")
+    except gspread.exceptions.APIError:
+        new_worksheet = sh.add_worksheet(title=f"{timestamp}-{attempt}", rows="4000", cols="15")
+        attempt += 1
+    finally:
+        new_worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+
+
+def make_df(d):
+    """ Transforma os dados vindos do database em DataFrame Pandas"""
     df = pd.DataFrame.from_records(
-        data,
+        d,
         columns=[
             'ID da Reserva',
             'Data do Turno',
@@ -51,43 +141,9 @@ def excel_maker(data, time):
             'Turno',
             'Corretor',
             'Imóvel'
-            ]
-        )
-    print(df)
-    excel_file = df.to_excel(f"Reservas {time}.xlsx", header=True, index=False)
-    return excel_file
-
-
-# Returns True if it is Too Soon to call again
-def is_too_soon(new_request_time):
-    with open(LOG_FILE) as f:
-        json_data = json.load(f)
-        last_request_time = json_data[REQUEST_LOGS][-1][EPOCH_TIME]
-    if new_request_time - last_request_time < wait_time_in_seconds:
-        # returns True because it is too soon
-        return True
-    else:
-        return False
-
-
-def get_timestamp():
-    now = datetime.datetime.now()
-    return [datetime.datetime.strftime(now, '%d-%m-%Y %H:%M'), time.time()]
-
-
-def log_to_json(response, timestamp):
-    new_data = {
-        EPOCH_TIME: timestamp[1]
-        TIMESTAMP: timestamp[0],
-        RESPONSE: response,
-    }
-    with open(LOG_FILE) as f:
-        json_data = json.load(f)
-
-    data = json_data[REQUEST_LOGS].append(new_data)
-
-    with open(LOG_FILE, 'w') as write_file:
-        json.dump(data, write_file)
+        ]
+    )
+    return df
 
 
 if __name__ == "__main__":

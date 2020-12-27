@@ -52,4 +52,4 @@ def query_reservas():
         return todas_reservas
 
 if __name__ == "__main__":
-    connect()
+    query_reservas()
