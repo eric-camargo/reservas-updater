@@ -16,7 +16,8 @@ INNER JOIN timetable_position AS pos ON res.position_id = pos.id
 INNER JOIN timetable_shiftschedule AS shc ON res.shiftschedule_id = shc.id
 INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
 INNER JOIN core_user AS usr ON usr.id = res.user_id
-INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id;"""
+INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
+WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days';"""
 
 
 def query_reservas():
