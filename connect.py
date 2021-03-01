@@ -3,7 +3,7 @@ import secrets
 
 # query_todas_reservas = "SELECT * from timetable_reservation"
 
-query_reservas_formatadas = """SELECT res.id, TO_CHAR(res.date, 'DD/MM/YYYY') AS dia,
+query_reservas_formatadas_completa = """SELECT res.id, TO_CHAR(res.date, 'DD/MM/YYYY') AS dia,
 res.starttime_utc - INTERVAL '3 hours' AS inicio,
 res.endtime_utc - INTERVAL '3 hours' AS final,
 to_char(res.created_at - INTERVAL '3 hours', 'DD/MM/YYYY HH24:MI:SS') AS HoraDeCadastro,
@@ -17,7 +17,23 @@ INNER JOIN timetable_shiftschedule AS shc ON res.shiftschedule_id = shc.id
 INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
 INNER JOIN core_user AS usr ON usr.id = res.user_id
 INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
-WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days';"""
+WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days' AND
+deleted_at IS NOT NULL;"""
+
+query_reservas_formatadas = """SELECT TO_CHAR(res.date, 'DD/MM/YYYY') AS dia,
+to_char(res.created_at - INTERVAL '3 hours', 'DD/MM/YYYY HH24:MI:SS') AS HoraDeCadastro,
+pos.title AS posição,
+shi.title AS Turno,
+CONCAT(usr.first_name,' ',usr.last_name) AS Usuario,
+obj.short_title AS imovel FROM
+timetable_reservation AS res
+INNER JOIN timetable_position AS pos ON res.position_id = pos.id
+INNER JOIN timetable_shiftschedule AS shc ON res.shiftschedule_id = shc.id
+INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
+INNER JOIN core_user AS usr ON usr.id = res.user_id
+INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
+WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days'
+ORDER BY Usuario ASC;"""
 
 
 def query_reservas():
@@ -50,6 +66,7 @@ def query_reservas():
         if conn is not None:
             conn.close()
             print("Database connection closed")
+        # print(todas_reservas)
         return todas_reservas
 
 if __name__ == "__main__":
