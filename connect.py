@@ -18,7 +18,7 @@ INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
 INNER JOIN core_user AS usr ON usr.id = res.user_id
 INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
 WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days' AND
-deleted_at IS NOT NULL;"""
+res.deleted_at IS NOT NULL;"""
 
 query_reservas_formatadas = """SELECT TO_CHAR(res.date, 'DD/MM/YYYY') AS dia,
 to_char(res.created_at - INTERVAL '3 hours', 'DD/MM/YYYY HH24:MI:SS') AS HoraDeCadastro,
@@ -32,7 +32,8 @@ INNER JOIN timetable_shiftschedule AS shc ON res.shiftschedule_id = shc.id
 INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
 INNER JOIN core_user AS usr ON usr.id = res.user_id
 INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
-WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days'
+WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days'AND
+res.deleted_at IS NULL
 ORDER BY Usuario ASC;"""
 
 

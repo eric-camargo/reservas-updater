@@ -100,21 +100,44 @@ def update_data(stamp):
 
 def google_uploader(data, timestamp):
     """ Gets DataFrame and uploads to Google Sheet"""
-    df_from_json = make_df(data)
-    detailed_output = detailed_data_treatment(df_from_json)
-    summary_output = summary_data_treatment(df_from_json)
+    df = make_df(data)
+    detailed_output = detailed_data_treatment(df)
+    summary_output = summary_data_treatment(df)
+
     attempt = 1
-    new_worksheet = ''
+    raw_worksheet = ''
     try:
         sh = gc.open("Reservas Seller")
-        new_worksheet = sh.add_worksheet(title=f"{timestamp}", rows="4000", cols="15")
+        raw_worksheet = sh.add_worksheet(title=f"Lista | {timestamp}", rows="4000", cols="15")
     except gspread.exceptions.APIError:
         sh = gc.open("Reservas Seller")
-        new_worksheet = sh.add_worksheet(title=f"{timestamp}-{attempt}", rows="4000", cols="15")
+        raw_worksheet = sh.add_worksheet(title=f"Lista | {timestamp}-{attempt}", rows="4000", cols="15")
         attempt += 1
     finally:
-        new_worksheet.update([detailed_output.columns.values.tolist()] + detailed_output.values.tolist())
+        raw_worksheet.update([df.columns.values.tolist()] + df.values.tolist())
 
+    attempt = 1
+    summary_worksheet = ''
+    try:
+        sh = gc.open("Reservas Seller")
+        summary_worksheet = sh.add_worksheet(title=f"Agregado | {timestamp}", rows="4000", cols="15")
+    except gspread.exceptions.APIError:
+        sh = gc.open("Reservas Seller")
+        summary_worksheet = sh.add_worksheet(title=f"Agregado | {timestamp}-{attempt}", rows="4000", cols="15")
+    finally:
+        summary_worksheet.update([summary_output.columns.values.tolist()] + summary_output.values.tolist())
+
+
+    attempt = 1
+    detailed_worksheet = ''
+    try:
+        sh = gc.open("Reservas Seller")
+        detailed_worksheet = sh.add_worksheet(title=f"Calendário | {timestamp}", rows="4000", cols="15")
+    except gspread.exceptions.APIError:
+        sh = gc.open("Reservas Seller")
+        detailed_worksheet = sh.add_worksheet(title=f"Calendário | {timestamp}-{attempt}", rows="4000", cols="15")
+    finally:
+        detailed_worksheet.update([detailed_output.columns.values.tolist()] + detailed_output.values.tolist())
 
 def make_df(data):
     """ Transforma os dados vindos do database em DataFrame Pandas"""
@@ -165,45 +188,45 @@ def detailed_data_treatment(df):
     details_groupby = df.groupby(details_header, as_index=False)
     details_toframe = pd.DataFrame(list(details_groupby.groups.keys()))
     details_toframe.columns = details_header
+    print(details_toframe)
 
     shifts = ["Turno da Manhã", "Turno da Tarde", "Turno da Noite"]
-    # shifts_toframe = pd.DataFrame(shifts)
 
     dates_groupby = df.groupby(['Data do Turno'], as_index=False)
-    dates_toframe = list(dates_groupby.groups.keys())
-    print(dates_toframe)
+    dates = list(dates_groupby.groups.keys())
+    print(dates)
 
-    header = []
-    formatted_header = []
-    for date in dates_toframe:
-        for shift in shifts:
-            header.append(date + " " + shift)
-            formatted_header.append(str(date).replace("/2021", "") + shift.replace("Turno da", ""))
 
-    reservations_detailed = pd.DataFrame(columns=["Imóvel", *header])
+    # formatted_date = []
+    # for date in dates:
+    #     formatted_date.append(str(date).replace("/2021", ""))
+
+
+    reservations_detailed = pd.DataFrame(columns=["Imóvel", "Turno", *dates])
+    print(reservations_detailed)
 
     for estate in estates_list:
-        estate_reservations_dict = {"Imóvel": estate}
-        for shift in header:
-            res_date = shift.split()[0]
-            res_shift = " ".join(shift.split()[1:])
-            agent_reserved = details_toframe[
-                (details_toframe['Imóvel'] == estate) &
-                (details_toframe['Data do Turno'] == res_date) &
-                (details_toframe['Turno'] == res_shift)
-            ]['Corretor'].values
-            if agent_reserved.size > 0:
-                for i, agent in enumerate(agent_reserved):
-                    if i == 0:
-                        estate_reservations_dict[shift] = agent
-                    else:
-                        estate_reservations_dict[shift] += "\n" + agent
-            else:
-                estate_reservations_dict[shift] = ""
-        reservations_detailed = reservations_detailed.append(estate_reservations_dict, ignore_index=True)
+        for shift in shifts:
+            formatted_shift = shift.replace("Turno da", "")
+            estate_reservations_dict = {"Imóvel": estate, "Turno": formatted_shift}
+            for date in dates:
+                agents_reserved = details_toframe[
+                    (details_toframe['Imóvel'] == estate) &
+                    (details_toframe['Data do Turno'] == date) &
+                    (details_toframe['Turno'] == shift)
+                ]['Corretor'].values
+                if agents_reserved.size > 0:
+                    for i, agent in enumerate(agents_reserved):
+                        if i == 0:
+                            estate_reservations_dict[date] = agent
+                        else:
+                            estate_reservations_dict[date] += "\n" + agent
+                else:
+                    estate_reservations_dict[date] = ""
 
-    reservations_detailed.columns = ["Imóveis", *formatted_header]
-    print(reservations_detailed)
+            reservations_detailed = reservations_detailed.append(estate_reservations_dict, ignore_index=True)
+            print(reservations_detailed)
+
 
     return reservations_detailed
 
