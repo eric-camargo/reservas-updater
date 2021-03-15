@@ -1,5 +1,4 @@
-# JSON Inputs
-LOG_FILE = "log.json"
+
 
 REQUEST_LOGS = "logs"
 
