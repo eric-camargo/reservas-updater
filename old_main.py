@@ -12,7 +12,7 @@ wait_time_in_seconds = 300
 class Reserves:
 
     def __init__(self):
-        now = datetime.datetime.now() - datetime.timedelta(hours=3)
+        now = datetime.datetime.now()
         stamp = [datetime.datetime.strftime(now, '%d/%m %Hh%M'), time.time()]
         self.timestamp = stamp[0]
         self.reserves_data = []
@@ -70,46 +70,46 @@ class Reserves:
             textFormat=gsf.textFormat(bold=True)
         )
 
-        attempt = 1
-        raw_worksheet = ''
-        print("Creating Raw Worksheet")
-        try:
-            raw_worksheet = sh.add_worksheet(title=f"{self.timestamp} | Lista", rows=str(rows), cols="15")
-        except gspread.exceptions.APIError:
-            raw_worksheet = sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Lista", rows="4000", cols="15")
-            attempt += 1
-        finally:
-            gsf.format_cell_range(raw_worksheet, '1:1000', std_format)
-            gsf.format_cell_range(raw_worksheet, 'A', index_format)
-            gsf.format_cell_range(raw_worksheet, 'A1:F1', header_format)
+        # attempt = 1
+        # raw_worksheet = ''
+        # print("Creating Raw Worksheet")
+        # try:
+        #     raw_worksheet = sh.add_worksheet(title=f"{self.timestamp} | Lista", rows=str(rows), cols="15")
+        # except gspread.exceptions.APIError:
+        #     raw_worksheet = sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Lista", rows="4000", cols="15")
+        #     attempt += 1
+        # finally:
+        #     gsf.format_cell_range(raw_worksheet, '1:1000', std_format)
+        #     gsf.format_cell_range(raw_worksheet, 'A', index_format)
+        #     gsf.format_cell_range(raw_worksheet, 'A1:G1', header_format)
+        #
+        #     gsf.set_frozen(raw_worksheet, rows=1)
+        #
+        #     gsf.set_row_height(raw_worksheet, '1:1000', 35)
+        #     gsf.set_column_widths(raw_worksheet, [('A:O', 150), ('B', 200)])
+        #
+        #     raw_worksheet.update([self.df.columns.values.tolist()] + self.df.values.tolist())
+        #     print("Successfully Created Raw Worksheet")
 
-            gsf.set_frozen(raw_worksheet, rows=1)
-
-            gsf.set_row_height(raw_worksheet, '1:1000', 35)
-            gsf.set_column_widths(raw_worksheet, [('A:O', 150), ('B', 200)])
-
-            raw_worksheet.update([self.df.columns.values.tolist()] + self.df.values.tolist())
-            print("Successfully Created Raw Worksheet")
-
-        attempt = 1
-        summary_worksheet = ''
-        print("Creating Summary Worksheet")
-        try:
-            summary_worksheet = sh.add_worksheet(title=f"{self.timestamp} | Resumo", rows=str(rows), cols="15")
-        except gspread.exceptions.APIError:
-            summary_worksheet = sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Resumo", rows="4000", cols="15")
-        finally:
-            gsf.format_cell_range(summary_worksheet, '1:1000', std_format)
-            gsf.format_cell_range(summary_worksheet, 'A', index_format)
-            gsf.format_cell_range(summary_worksheet, 'A1:F1', header_format)
-
-            gsf.set_frozen(summary_worksheet, rows=1)
-
-            gsf.set_row_height(summary_worksheet, '1:1000', 35)
-            gsf.set_column_widths(summary_worksheet, [('A:O', 150), ('C', 200)])
-
-            summary_worksheet.update([summary_output.columns.values.tolist()] + summary_output.values.tolist())
-            print("Successfully Created Summary Worksheet")
+        # attempt = 1
+        # summary_worksheet = ''
+        # print("Creating Summary Worksheet")
+        # try:
+        #     summary_worksheet = sh.add_worksheet(title=f"{self.timestamp} | Resumo", rows=str(rows), cols="15")
+        # except gspread.exceptions.APIError:
+        #     summary_worksheet = sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Resumo", rows="4000", cols="15")
+        # finally:
+        #     gsf.format_cell_range(summary_worksheet, '1:1000', std_format)
+        #     gsf.format_cell_range(summary_worksheet, 'A', index_format)
+        #     gsf.format_cell_range(summary_worksheet, 'A1:F1', header_format)
+        #
+        #     gsf.set_frozen(summary_worksheet, rows=1)
+        #
+        #     gsf.set_row_height(summary_worksheet, '1:1000', 35)
+        #     gsf.set_column_widths(summary_worksheet, [('A:O', 150), ('C', 200)])
+        #
+        #     summary_worksheet.update([summary_output.columns.values.tolist()] + summary_output.values.tolist())
+        #     print("Successfully Created Summary Worksheet")
 
         attempt = 1
         detailed_worksheet = ''
@@ -133,8 +133,8 @@ class Reserves:
 
         if len(current_sheets_list) >= 3:
             print("Deleting Old Tabs")
-            for sheet in current_sheets_list[-3:]:
-                sh.del_worksheet(sheet)
+            # for sheet in current_sheets_list[-3:]:
+            #     sh.del_worksheet(sheet)
             print("Old Tabs Deleted")
 
     def make_df(self):
@@ -142,6 +142,7 @@ class Reserves:
         self.df = pd.DataFrame.from_records(
             self.reserves_data,
             columns=[
+                'ID',
                 'Corretor',
                 'Data do Turno',
                 'Hora de Cadastro da Reserva',

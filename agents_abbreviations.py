@@ -26,7 +26,7 @@ ABBREVIATIONS = {
         'Fabiana Bastos': 'FB',
         'Fabiano Denck': 'FD',
         'Fabiano Gonçalves': 'FG',
-        'Fran Bittencourt': 'FR',
+        'Fran Bittencourt': 'FC',
         'Franklin Jacob': 'FJ',
         'Gabriel Garcia': 'GG',
         'Jaciane Dias': 'JD',

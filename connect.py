@@ -19,8 +19,8 @@ class Connect:
                                 INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
                                 INNER JOIN core_user AS usr ON usr.id = res.user_id
                                 INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
-                                WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '6 days'AND
-                                res.deleted_at IS NULL
+                                WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '8 days' AND
+                                res.deleted_at is NULL
                                 ORDER BY Usuario ASC;"""
 
     def query(self):
@@ -38,10 +38,12 @@ class Connect:
 
             # create a cursor
             cur = conn.cursor()
+            # print(cur)
 
             # execute select_all
             cur.execute(self.query_reservas)
             todas_reservas = cur.fetchall()
+            # print(todas_reservas)
 
             # close communication with the PostgreSQL
             cur.close()

@@ -12,5 +12,10 @@ PDV_TYPES = {
     'The Park': 'PDV Lançamento',
     'Vintage Senior Residence': 'PDV Estoque',
     'Yoo Moinhos': 'PDV Estoque',
-    'Zaffari Cabral': 'PDV Estoque'
+    'Zaffari Cabral': 'PDV Estoque',
+    'Chat Manhã': 'Online',
+    'Chat Tarde': 'Online',
+    'Chat Noite': 'Online',
+    '8652 Manhã': 'Telefone',
+    '8652 Tarde': 'Telefone'
 }
