@@ -3,7 +3,7 @@ import secrets
 
 
 # query_todas_reservas = "SELECT * from timetable_reservation"
-
+"""res.date > CURRENT_TIMESTAMP + INTERVAL '2 days' AND """
 class Connect:
 
     def __init__(self):
@@ -19,11 +19,39 @@ class Connect:
                                 INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
                                 INNER JOIN core_user AS usr ON usr.id = res.user_id
                                 INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
-                                WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '8 days' AND
+                                WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '5 days' AND
                                 res.deleted_at is NULL
                                 ORDER BY Usuario ASC;"""
 
-    def query(self):
+        self.pre_reservas = """SELECT seats.seats AS Vagas, 
+                                positions.title AS Posição, 
+                                shift.title AS Turno, 
+                                CASE schedule.weekday
+                                    WHEN 0 THEN 'Domingo'
+                                    WHEN 1 THEN 'Segunda'
+                                    WHEN 2 THEN 'Terça'
+                                    WHEN 3 THEN 'Quarta'
+                                    WHEN 4 THEN 'Quinta'
+                                    WHEN 5 THEN 'Sexta'
+                                    WHEN 6 THEN 'Sábado'
+                                    END weekday, 
+                                    imovel.short_title AS Imóvel 
+                                FROM timetable_seats seats
+                                INNER JOIN explore_exploreobject imovel
+                                ON seats.exploreobject_id = imovel.id
+                                INNER JOIN timetable_position positions
+                                ON seats.position_id = positions.id
+                                INNER JOIN timetable_shiftschedule schedule
+                                ON seats.shiftschedule_id = schedule.id
+                                INNER JOIN timetable_shift shift
+                                ON schedule.shift_id = shift.id
+                                INNER JOIN timetable_schedulingwindow janela
+                                ON seats.exploreobject_id = janela.exploreobject_id
+                                WHERE janela.scheduling_start_datetime > '2021-04-04'
+                                ORDER BY imovel.short_title ASC, schedule.weekday
+                                ;"""
+
+    def query(self, query):
         """ Connect to the PostgreSQL database server """
         conn = None
         todas_reservas = None
@@ -41,7 +69,7 @@ class Connect:
             # print(cur)
 
             # execute select_all
-            cur.execute(self.query_reservas)
+            cur.execute(query)
             todas_reservas = cur.fetchall()
             # print(todas_reservas)
 
@@ -57,8 +85,3 @@ class Connect:
                 print("Database connection closed")
             # print(todas_reservas)
             return todas_reservas
-
-
-if __name__ == "__main__":
-    conn = Connect()
-    conn.query_reservas()

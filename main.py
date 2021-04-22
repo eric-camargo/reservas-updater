@@ -5,8 +5,11 @@ import time
 import gspread
 import gspread_formatting as gsf
 import math
+import date_calculator
+import reservations_checker
 from agent import Agent
 from pdvs import Pdv
+from pdv_types import PDV_TYPES
 from shift_day import ShiftDay
 from reservation import Reservation
 from merging import merge_days
@@ -30,9 +33,9 @@ class ReservationsHandler:
         self.reservations_json = self.fetch_data()
         self.dataframe = self.make_dataframe()
         self.agents_list = self.get_agents()
-        self.pdvs = self.get_pdvs()
-        self.days = self.get_days()
-
+        self.pdvs = PDV_TYPES.keys()
+        # self.days = date_calculator.get_next_week_from_monday(-7)
+        self.days = ['19/04/2021', '20/04/2021', '21/04/2021', '22/04/2021', '23/04/2021', '24/04/2021', '25/04/2021']
         self.weekdays = ['','SEG', '', 'TER', '', 'QUA', '', 'QUI', '', 'SEX', '', 'SÁB', '', 'DOM', '']
         self.shift_times_sede = ["Turno da Manhã", "Turno da Tarde", "Turno da Noite"]
         self.shift_times = ["Turno da Manhã", "Turno da Tarde"]
@@ -48,8 +51,9 @@ class ReservationsHandler:
 
     @staticmethod
     def fetch_data():
+        print("opening db")
         conn = Connect()
-        data = conn.query()
+        data = conn.query(conn.query_reservas)
         # print(data)
         return data
 
@@ -66,6 +70,7 @@ class ReservationsHandler:
                 'Imóvel'
             ]
         )
+        print(dataframe)
         return dataframe
 
     def get_agents(self):
@@ -90,14 +95,15 @@ class ReservationsHandler:
         for day in days:
             d = ShiftDay(str(day).strip())
             days_list.append(d)
+            # print(day)
         return days_list
 
     def create_reservations_objects(self):
         reservations = []
         for index, row in self.dataframe.iterrows():
             res_id = row['ID']
-            pdv = next((pdv for pdv in self.pdvs if pdv.name == str(row['Imóvel']).strip()), row['Imóvel'])
-            day = next((day for day in self.days if day.date == str(row['Data do Turno']).strip()),row['Data do Turno'])
+            pdv = next((pdv for pdv in self.pdvs if pdv == str(row['Imóvel']).strip()), row['Imóvel'])
+            day = next((day for day in self.days if day == str(row['Data do Turno']).strip()),row['Data do Turno'])
             shift_time = next((shift for shift in self.shift_times if shift == str(row['Turno']).strip()), row['Turno'])
             agent = next((agent for agent in self.agents_list if agent.name == str(row['Corretor']).strip()),row['Corretor'])
             reservation_time = row['Hora de Cadastro']
@@ -105,14 +111,13 @@ class ReservationsHandler:
 
             res = Reservation(res_id, pdv, day, shift_time, agent, reservation_time, position)
             reservations.append(res)
-
         return reservations
 
     def populate_table(self, times):
         pdv_reservations = {}
         '''Colocar um if para pegar o caso onde o PDV seja SEDE SELLER, mas sem aceitar POSIÇÃO TELEFONE'''
         for pdv in self.pdvs:
-            if pdv.name != "Sede Seller":
+            if pdv != "Sede Seller":
                 day_reservations = {}
                 for day in self.days:
                     shift_time_reservations = {}
@@ -124,13 +129,15 @@ class ReservationsHandler:
 
                         if reservations:
                             shift_time_reservations[shift_time] = reservations
-                    day_reservations[day.date] = shift_time_reservations
-                pdv_reservations[pdv.name] = day_reservations
+                    day_reservations[day] = shift_time_reservations
+                pdv_reservations[pdv] = day_reservations
             else:
-                telefone_reservations = {}
+                tel8652_reservations = {}
+                tel8600_reservations = {}
                 day_reservations = {}
                 for day in self.days:
-                    telefone = {}
+                    tel_8652 = {}
+                    tel_8600 = {}
                     shift_time_reservations = {}
                     for shift_time in times:
                         reservations = []
@@ -139,31 +146,36 @@ class ReservationsHandler:
                             if res.pdv == pdv and res.day == day and res.shift_time == shift_time:
                                 if str(res.position).strip() == "Online":
                                     reservations.append(res.agent.abbreviation)
+                                elif str(res.position).strip() == "Telefone 8652":
+                                    tel_8652[shift_time] = [res.agent.abbreviation, '']
                                 else:
-                                    telefone[shift_time] = [res.agent.abbreviation, '']
+                                    tel_8600[shift_time] = [res.agent.abbreviation, '']
+
                         if reservations:
                             shift_time_reservations[shift_time] = reservations
 
-                    telefone_reservations[day.date] = telefone
-                    day_reservations[day.date] = shift_time_reservations
-                pdv_reservations[pdv.name] = day_reservations
-                pdv_reservations['8652'] = telefone_reservations
+                    tel8652_reservations[day] = tel_8652
+                    tel8600_reservations[day] = tel_8600
+                    day_reservations[day] = shift_time_reservations
+                pdv_reservations[pdv] = day_reservations
+                pdv_reservations['8652'] = tel8652_reservations
+                pdv_reservations['8600'] = tel8600_reservations
 
-        print(pdv_reservations)
+        # print(pdv_reservations.keys())
         return pdv_reservations
 
     def capacity_calculation(self):
         capacity = {}
         sede_reservations = self.populate_table(self.shift_times_sede)
-
+        open_spots = reservations_checker.ReservationsHandler()
+        pdvs_capacity = open_spots.df.groupby('Imóvel')['Vagas'].max()
         for pdv, reservations in self.pdv_reservations.items():
-            if str(pdv).strip() != "Sede Seller" and str(pdv).strip() != "8652":
-                pdv_max = 0
-                for day, reservation in reservations.items():
-                    for shifts, agents in reservation.items():
-                        if len(agents) > pdv_max:
-                            pdv_max = len(agents)
-                capacity[pdv] = pdv_max
+            if str(pdv).strip() != "Sede Seller" and str(pdv).strip() != "8652" and str(pdv).strip() != "8600":
+                # for day, reservation in reservations.items():
+                #     for shifts, agents in reservation.items():
+                #         if len(agents) > pdv_max:
+                #             pdv_max = len(agents)
+                capacity[pdv] = pdvs_capacity[pdv]
             elif str(pdv).strip() == "Sede Seller":
                 for shift in self.shift_times_sede:
                     shift_max = 0
@@ -179,13 +191,13 @@ class ReservationsHandler:
     def make_header(self):
         header = []
         for day in self.days:
-            formatted_date = str(day.date).replace("/2021", "")
+            formatted_date = str(day).replace("/2021", "")
             self.days_header.append(formatted_date)
             self.days_header.append("")
             self.shifts_header.append("MAN")
             self.shifts_header.append("TAR")
             for shift in self.shift_times:
-                header.append(day.date.strip() + " - " + shift)
+                header.append(day.strip() + " - " + shift)
         return header
 
     def detailed_reservations(self):
@@ -194,27 +206,37 @@ class ReservationsHandler:
         self.reservations_detailed = pd.DataFrame(columns=["Imóvel", *header])
         # print(len(["Imóvel", *header]))
         for pdv, reservations in self.pdv_reservations.items():
-            if pdv != "Sede Seller" and pdv != "8652":
+            if pdv != "Sede Seller" and pdv != "8652" and pdv != "8600":
                 self.reservations_detailed = self.reservations_detailed.append(pd.Series(), ignore_index=True)
-                lines = self.pdv_capacity[pdv]
-                for i in range(lines):
-                    pdv_res = self.pdv_reservations[pdv]
+                try:
+                    lines = self.pdv_capacity[pdv]
+                except KeyError:
+                    lines = 0
+                if lines > 0:
+                    for i in range(lines):
+                        pdv_res = self.pdv_reservations[pdv]
+                        pdv_dict = {"Imóvel": pdv}
+                        for day in self.days:
+                            for shift_date, shifts in pdv_res.items():
+                                if shift_date == day:
+                                    if len(shifts) > 0:
+                                        for shift, agents in shifts.items():
+                                            try:
+                                                pdv_dict[day.strip() + " - " + shift] = agents[i]
+                                            except IndexError:
+                                                continue
+                                    else:
+                                        for shift, agents in shifts.items():
+                                            pdv_dict[day.strip() + " - " + shift] = ""
+                        self.reservations_detailed = self.reservations_detailed.append(pdv_dict, ignore_index=True)
+                        self.reservations_detailed.fillna('', inplace=True)
+                else:
                     pdv_dict = {"Imóvel": pdv}
                     for day in self.days:
-                        for shift_date, shifts in pdv_res.items():
-                            if shift_date == day.date:
-                                if len(shifts) > 0:
-                                    for shift, agents in shifts.items():
-                                        try:
-                                            pdv_dict[day.date.strip() + " - " + shift] = agents[i]
-                                        except IndexError:
-                                            continue
-                                else:
-                                    for shift, agents in shifts.items():
-                                        pdv_dict[day.date.strip() + " - " + shift] = ""
+                        for shift in self.shift_times:
+                            pdv_dict[day.strip() + " - " + shift] = "-"
                     self.reservations_detailed = self.reservations_detailed.append(pdv_dict, ignore_index=True)
                     self.reservations_detailed.fillna('', inplace=True)
-
         self.reservations_detailed = self.reservations_detailed.append(pd.Series(), ignore_index=True)
         days_df = pd.DataFrame([self.days_header], columns=self.reservations_detailed.columns)
         weekdays_df = pd.DataFrame([self.weekdays], columns=self.reservations_detailed.columns)
@@ -222,8 +244,8 @@ class ReservationsHandler:
         self.reservations_detailed = self.reservations_detailed.append(days_df, ignore_index=True)
         self.reservations_detailed = self.reservations_detailed.append(weekdays_df, ignore_index=True)
 
-        sede_reservations = self.get_sede_reservations()
-        self.reservations_detailed = self.reservations_detailed.append(sede_reservations, ignore_index=True)
+        # sede_reservations = self.get_sede_reservations()
+        # self.reservations_detailed = self.reservations_detailed.append(sede_reservations, ignore_index=True)
         self.reservations_detailed.fillna('', inplace=True)
 
         self.reservations_detailed.columns = ["Imóvel", *self.shifts_header]
@@ -236,15 +258,15 @@ class ReservationsHandler:
 
         # print(len(self.shifts_header))
         sede_res = sede_reservations["Sede Seller"]
-
+        print(sede_res)
         shifts = ["Turno da Manhã", "Turno da Tarde", "Turno da Noite"]
         dates_groupby = self.dataframe.groupby(['Data do Turno'], as_index=False)
-        dates = list(dates_groupby.groups.keys())
         # print("Data Sede")
         # print(sede_res)
         sede_list = []
 
         for shift in shifts:
+            shift_list = []
             turno = str(shift).replace("Turno da ", "")
             sede_shift_tag = f"Chat {turno}"
             lines = math.ceil(self.pdv_capacity[sede_shift_tag] / 2)
@@ -252,10 +274,9 @@ class ReservationsHandler:
             for line in range(lines):
                 shift_list = [sede_shift_tag]
                 counter = 0
-                for day in range(len(dates)):
-                    date = dates[day]
+                for day in self.days:
                     shift_res = []
-                    day_shifts = sede_res[date]
+                    day_shifts = sede_res[day]
                     # print(date)
                     if day_shifts:
                         try:
@@ -275,33 +296,52 @@ class ReservationsHandler:
                                 finally:
                                     counter += 1
                                     # print(len(shift_list))
+
                 sede_list.append(shift_list)
+                print(sede_list)
             shift_length = len(shift_list)
-            # print(shift_length)
-            l = [""] * shift_length
-            sede_list.append(l)
+            s_len = [""] * shift_length
+            sede_list.append(s_len)
 
 
-        telefone_res = sede_reservations["8652"]
-        # telefone_list = []
+        tel8652_res = sede_reservations["8652"]
         for s in ["Turno da Manhã", "Turno da Tarde"]:
             turno = str(s).replace("Turno da ", "")
-            telefone_shifts_tag = f"8652 {turno}"
-            telefone_shifts_list = [telefone_shifts_tag]
-            for day in range(len(dates)):
-                date = dates[day]
-                day_shifts = telefone_res[date]
+            tel8652_shifts_tag = f"8652 {turno}"
+            tel8652_shifts_list = [tel8652_shifts_tag]
+            for day in self.days:
+                day_shifts = tel8652_res[day]
                 if day_shifts:
                     try:
-                        telefone_shifts_list.append(day_shifts[s][0])
-                        telefone_shifts_list.append("")
+                        tel8652_shifts_list.append(day_shifts[s][0])
+                        tel8652_shifts_list.append("")
+                    except KeyError:
+                        pass
+            sede_list.append(tel8652_shifts_list)
+            sede_list.append(s_len)
+
+        tel8600_res = sede_reservations["8600"]
+        for s in ["Turno da Manhã", "Turno da Tarde"]:
+            turno = str(s).replace("Turno da ", "")
+            tel8600_shifts_tag = f"8600 {turno}"
+            tel8600_shifts_list = [tel8600_shifts_tag]
+            for day in self.days:
+                day_shifts = tel8600_res[day]
+                if day_shifts:
+                    try:
+                        tel8600_shifts_list.append(day_shifts[s][0])
+                        tel8600_shifts_list.append("")
                     except KeyError:
                         pass
 
-            sede_list.append(telefone_shifts_list)
-            sede_list.append(l)
+            sede_list.append(tel8600_shifts_list)
+            sede_list.append(s_len)
+
+        print("sede_list")
         print(sede_list)
         # print(self.reservations_detailed.columns)
+        print("self.reservations_detailed.columns")
+        print(self.reservations_detailed.columns)
         sede = pd.DataFrame(sede_list, columns=self.reservations_detailed.columns)
         sede.fillna('', inplace=True)
         # print(sede)
@@ -344,11 +384,11 @@ class ReservationsHandler:
 
         attempt = 0
         try:
-            self.detailed_worksheet = self.sh.add_worksheet(title=f"{self.timestamp} | Teste", rows=str(rows),
+            self.detailed_worksheet = self.sh.add_worksheet(title=f"{self.timestamp} | Reservas Seller", rows=str(rows),
                                                             cols="35")
         except gspread.exceptions.APIError:
             attempt += 1
-            self.detailed_worksheet = self.sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Calendário",
+            self.detailed_worksheet = self.sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Reservas Seller",
                                                             rows="2000", cols="35")
         finally:
             self.merging_and_formatting()
