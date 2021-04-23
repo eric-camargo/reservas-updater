@@ -6,7 +6,7 @@ import secrets
 """res.date > CURRENT_TIMESTAMP + INTERVAL '2 days' AND """
 class Connect:
 
-    def __init__(self):
+    def __init__(self, days):
         self.query_reservas = """SELECT res.id, CONCAT (usr.first_name,' ',usr.last_name) AS Usuario,
                                 TO_CHAR(res.date, 'DD/MM/YYYY') AS dia,
                                 to_char(res.created_at - INTERVAL '3 hours', 'DD/MM/YYYY HH24:MI:SS') AS HoraDeCadastro,
@@ -19,9 +19,9 @@ class Connect:
                                 INNER JOIN timetable_shift AS shi ON shi.id = shc.shift_id
                                 INNER JOIN core_user AS usr ON usr.id = res.user_id
                                 INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
-                                WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '5 days' AND
+                                WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '%s days' AND
                                 res.deleted_at is NULL
-                                ORDER BY Usuario ASC;"""
+                                ORDER BY Usuario ASC;""" % (days)
 
         self.pre_reservas = """SELECT seats.seats AS Vagas, 
                                 positions.title AS Posição, 
