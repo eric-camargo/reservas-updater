@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from connect import Connect
 import pandas as pd
 import datetime
@@ -12,47 +13,79 @@ from pdv_types import PDV_TYPES
 from shift_day import ShiftDay
 from reservation import Reservation
 from merging import merge_days
+from copy_format import copy_format
 from formatting import formatting_sheet
+from rename_sheet import  rename_sheet
 from agents_abbreviations import ABBREVIATIONS
-from credentials import credentials
+
 
 class ReservationsHandler:
 
-    def __init__(self):
+    def __init__(self, sheet):
         self.header_len = 0
-        self.gc = gspread.authorize(credentials)
-        now = datetime.datetime.now()
-        self.days_header = [""]
+        self.db_conn = Connect(2)
         self.seats = None
-        self.shifts_header = []
         self.detailed_worksheet = None
+        self.sheet_name = ""
         self.raw_worksheet = None
-        self.sh = None
-        stamp = [datetime.datetime.strftime(now, '%d/%m %Hh%M'), time.time()]
+        self.days_header = [""]
+        self.shifts_header = []
+        self.gc = gspread.service_account()
+        self.sh = self.gc.open(sheet)
+        self.days = date_calculator.get_next_week_from_monday(0)
+        # self.days = ['26/04/2021', '27/04/2021', '28/04/2021', '29/04/2021', '30/04/2021', '01/05/2021', '02/05/2021']
+        self.weekdays = ['', 'SEG', '', 'TER', '', 'QUA', '', 'QUI', '', 'SEX', '', 'SÁB', '', 'DOM', '']
+        self.shift_times_sede = ["Turno da Manhã", "Turno da Tarde", "Turno da Noite"]
+        self.shift_times = ["Turno da Manhã", "Turno da Tarde"]
+        self.current_sheets_list = None
+        self.pdvs = PDV_TYPES.keys()
+
+        self.pdv_reservations = {}
+        self.get_time()
+        self.data_handler()
+        self.outputs_handler()
+
+        self.calendar_formatting()
+        self.update_calendar_values()
+
+    def refresh_data(self):
+        self.days_header = [""]
+        self.get_time()
+        self.data_handler()
+        self.outputs_handler()
+        self.rename_sheet()
+        self.update_calendar_values()
+
+    def rename_sheet(self):
+        sheet_name = "%s | Reservas" % (self.timestamp)
+        rename_body = rename_sheet(self.sh.worksheets()[-1].id, sheet_name )
+        self.detailed_worksheet._properties['title'] = sheet_name
+        res = self.sh.batch_update(rename_body)
+        print(res)
+
+    def get_time(self):
+        now = datetime.datetime.now()
+        self.current_sheets_list = self.sh.worksheets()
+        stamp = [datetime.datetime.strftime(now, '%d/%m %Hh%Mm%Ss'), time.time()]
         self.timestamp = stamp[0]
+
+    def data_handler(self):
+        # Fetch Data
         self.reservations_json = self.fetch_data()
         self.dataframe = self.make_dataframe()
         self.agents_list = self.get_agents()
-        self.pdvs = PDV_TYPES.keys()
-        self.days = date_calculator.get_next_week_from_monday(-7)
-        # self.days = ['19/04/2021', '20/04/2021', '21/04/2021', '22/04/2021', '23/04/2021', '24/04/2021', '25/04/2021']
-        self.weekdays = ['','SEG', '', 'TER', '', 'QUA', '', 'QUI', '', 'SEX', '', 'SÁB', '', 'DOM', '']
-        self.shift_times_sede = ["Turno da Manhã", "Turno da Tarde", "Turno da Noite"]
-        self.shift_times = ["Turno da Manhã", "Turno da Tarde"]
+
         self.reservations_objects = self.create_reservations_objects()
-        self.pdv_reservations = {}
         self.pdv_reservations = self.populate_table(self.shift_times)
-        print(self.pdv_reservations)
         self.pdv_capacity = self.capacity_calculation()
-        self.current_sheets_list = None
-        self.upload_raw()
-        self.upload_calendar()
-        # self.wipe_old_sheets(2)
+
+    def outputs_handler(self):
+        self.detailed_output = self.detailed_reservations()
+        self.summary_output = self.summary_reservations()
+        self.no_reservations_output = self.no_reservations_broker()
 
     def fetch_data(self):
-        print("opening db")
-        conn = Connect(10)
-        seats = conn.query(conn.pre_reservas)
+        seats = self.db_conn.query(self.db_conn.pre_reservas)
         pd.set_option('display.max_rows', None)
         pd.set_option('display.max_columns', None)
         seats_df = pd.DataFrame.from_records(
@@ -66,9 +99,8 @@ class ReservationsHandler:
             ]
         )
         self.seats = seats_df
-        # print(data)
 
-        data = conn.query(conn.query_reservas)
+        data = self.db_conn.query(self.db_conn.query_reservas)
         return data
 
     def make_dataframe(self):
@@ -84,7 +116,6 @@ class ReservationsHandler:
                 'Imóvel'
             ]
         )
-        print(dataframe)
         return dataframe
 
     def get_agents(self):
@@ -109,7 +140,6 @@ class ReservationsHandler:
         for day in days:
             d = ShiftDay(str(day).strip())
             days_list.append(d)
-            # print(day)
         return days_list
 
     def create_reservations_objects(self):
@@ -146,17 +176,18 @@ class ReservationsHandler:
                     day_reservations[day] = shift_time_reservations
                 pdv_reservations[pdv] = day_reservations
             else:
+                online_reservations = {}
                 tel8652_reservations = {}
                 tel8600_reservations = {}
                 day_reservations = {}
                 for day in self.days:
-                    tel_8652 = {}
-                    tel_8600 = {}
+
+                    tel_8652 = {'Turno da Manhã': ['',''], 'Turno da Tarde': ['','']}
+                    tel_8600 = {'Turno da Manhã': ['',''], 'Turno da Tarde': ['','']}
                     shift_time_reservations = {}
                     for shift_time in times:
                         reservations = []
                         for res in self.reservations_objects:
-                            # print(res.position)
                             if res.pdv == pdv and res.day == day and res.shift_time == shift_time:
                                 if str(res.position).strip() == "Online":
                                     reservations.append(res.agent.abbreviation)
@@ -175,13 +206,23 @@ class ReservationsHandler:
                 pdv_reservations['8652'] = tel8652_reservations
                 pdv_reservations['8600'] = tel8600_reservations
 
-        # print(pdv_reservations.keys())
         return pdv_reservations
 
     def capacity_calculation(self):
         capacity = {}
         sede_reservations = self.populate_table(self.shift_times_sede)
-        pdvs_capacity = self.seats.groupby('Imóvel')['Vagas'].max()
+        #pdvs_capacity = self.seats.groupby('Imóvel')['Vagas'].max()
+
+        pdvs_capacity = {}
+        for pdv in PDV_TYPES.keys():
+            pdvs_capacity[pdv] = 0
+
+        cap = self.seats.groupby('Imóvel')['Vagas'].max()
+        for key, value in cap.items():
+            pdvs_capacity[key] = value
+
+        print(pdvs_capacity)
+        # print(self.pdv_reservations)
         for pdv, reservations in self.pdv_reservations.items():
             if str(pdv).strip() != "Sede Seller" and str(pdv).strip() != "8652" and str(pdv).strip() != "8600":
                 # for day, reservation in reservations.items():
@@ -192,17 +233,25 @@ class ReservationsHandler:
             elif str(pdv).strip() == "Sede Seller":
                 for shift in self.shift_times_sede:
                     shift_max = 0
+                    capacity["Chat Manhã"] = 12
+                    capacity["Chat Tarde"] = 8
+                    capacity["Chat Noite"] = 6
+
+
                     for day, reservation in sede_reservations["Sede Seller"].items():
                         for s, agents in reservation.items():
                             if s == shift:
                                 if len(agents) > shift_max:
                                     shift_max = len(agents)
-                    capacity[f"Chat {str(shift).replace('Turno da ', '')}"] = shift_max
-        # print(capacity)
+                    if shift_max != 0:
+                        capacity[f"Chat {str(shift).replace('Turno da ', '')}"] = shift_max
+        print(capacity)
         return capacity
 
     def make_header(self):
         header = []
+        self.days_header = [""]
+        self.shifts_header = []
         for day in self.days:
             formatted_date = str(day).replace("/2021", "")
             self.days_header.append(formatted_date)
@@ -215,9 +264,9 @@ class ReservationsHandler:
 
     def detailed_reservations(self):
         header = self.make_header()
-        # print(self.shifts_header)
+        pdv_dict = {}
+        self.reservations_detailed = None
         self.reservations_detailed = pd.DataFrame(columns=["Imóvel", *header])
-        # print(len(["Imóvel", *header]))
         for pdv, reservations in self.pdv_reservations.items():
             if pdv != "Sede Seller" and pdv != "8652" and pdv != "8600":
                 self.reservations_detailed = self.reservations_detailed.append(pd.Series(), ignore_index=True)
@@ -260,7 +309,6 @@ class ReservationsHandler:
         sede_reservations = self.get_sede_reservations()
         self.reservations_detailed = self.reservations_detailed.append(sede_reservations, ignore_index=True)
         self.reservations_detailed.fillna('', inplace=True)
-
         self.reservations_detailed.columns = ["Imóvel", *self.shifts_header]
 
         self.header_len = len(self.reservations_detailed.columns)
@@ -269,13 +317,9 @@ class ReservationsHandler:
     def get_sede_reservations(self):
         sede_reservations = self.populate_table(self.shift_times_sede)
 
-        # print(len(self.shifts_header))
         sede_res = sede_reservations["Sede Seller"]
-        print(sede_res)
         shifts = ["Turno da Manhã", "Turno da Tarde", "Turno da Noite"]
         dates_groupby = self.dataframe.groupby(['Data do Turno'], as_index=False)
-        # print("Data Sede")
-        # print(sede_res)
         sede_list = []
 
         for shift in shifts:
@@ -290,7 +334,6 @@ class ReservationsHandler:
                 for day in self.days:
                     shift_res = []
                     day_shifts = sede_res[day]
-                    # print(date)
                     if day_shifts:
                         try:
                             shift_res = day_shifts[shift]
@@ -308,10 +351,11 @@ class ReservationsHandler:
                                     shift_list.append("")
                                 finally:
                                     counter += 1
-                                    # print(len(shift_list))
+                    else:
+                        shift_list.append("")
+                        shift_list.append("")
 
                 sede_list.append(shift_list)
-                print(sede_list)
             shift_length = len(shift_list)
             s_len = [""] * shift_length
             sede_list.append(s_len)
@@ -330,6 +374,10 @@ class ReservationsHandler:
                         tel8652_shifts_list.append("")
                     except KeyError:
                         pass
+                else:
+                    tel8652_shifts_list.append("")
+                    tel8652_shifts_list.append("")
+
             sede_list.append(tel8652_shifts_list)
             sede_list.append(s_len)
 
@@ -346,20 +394,17 @@ class ReservationsHandler:
                         tel8600_shifts_list.append("")
                     except KeyError:
                         pass
+                else:
+                    tel8600_shifts_list.append("")
+                    tel8600_shifts_list.append("")
 
             sede_list.append(tel8600_shifts_list)
             sede_list.append(s_len)
 
-        print("sede_list")
-        print(sede_list)
-        # print(self.reservations_detailed.columns)
-        print("self.reservations_detailed.columns")
-        print(self.reservations_detailed.columns)
+
         sede = pd.DataFrame(sede_list, columns=self.reservations_detailed.columns)
         sede.fillna('', inplace=True)
-        # print(sede)
         return sede
-
 
     def summary_reservations(self):
         agents_list = self.dataframe.groupby(['Corretor']).groups.keys()
@@ -369,7 +414,11 @@ class ReservationsHandler:
         agents_summary = pd.DataFrame(columns=["Nome", "Sigla", *positions_raw, "Total"])
         for agent in agents_list:
             total = 0
-            agent_sum_dict = {"Nome": agent, "Sigla": ABBREVIATIONS[str(agent).strip()]}
+            try:
+                sigla = ABBREVIATIONS[str(agent).strip()]
+            except KeyError:
+                sigla = agent
+            agent_sum_dict = {"Nome": agent, "Sigla": sigla}
             for position in positions_raw:
                 reservations = summary_count[
                     (summary_count['Corretor'] == agent) &
@@ -379,7 +428,6 @@ class ReservationsHandler:
                 total += reservations
             agent_sum_dict["Total"] = total
             agents_summary = agents_summary.append(agent_sum_dict, ignore_index=True)
-        # print(agents_summary)
         agents_summary.columns = ["NOME", "SIGLA", *positions, "TOTAL"]
         return agents_summary
 
@@ -394,15 +442,15 @@ class ReservationsHandler:
             if agent not in brokers:
                 agent_sum_dict = {"Nome": agent, "Sigla": ABBREVIATIONS[agent]}
                 no_reservation_brokers = no_reservation_brokers.append(agent_sum_dict, ignore_index=True)
-        print(no_reservation_brokers)
         no_reservation_brokers.columns = ["CORRETORES SEM RESERVA", "SIGLA"]
+        for i in range(60):
+            no_reservation_brokers = no_reservation_brokers.append(pd.Series(), ignore_index=True)
+        no_reservation_brokers.fillna('', inplace=True)
+
         return no_reservation_brokers
 
-    def upload_calendar(self):
-        detailed_output = self.detailed_reservations()
-        # print(detailed_output)
-        summary_output = self.summary_reservations()
-        no_reservations = self.no_reservations_broker()
+    def calendar_formatting(self):
+
         rows = 2000
 
         std_format = gsf.cellFormat(horizontalAlignment='CENTER', verticalAlignment='MIDDLE')
@@ -412,15 +460,15 @@ class ReservationsHandler:
         index_format = gsf.cellFormat(textFormat=gsf.textFormat(bold=True))
 
         attempt = 0
+        self.sheet_name = f"{self.timestamp} | Reservas"
         try:
-            self.detailed_worksheet = self.sh.add_worksheet(title=f"{self.timestamp} | Reservas Seller", rows=str(rows),
+            self.detailed_worksheet = self.sh.add_worksheet(title=self.sheet_name, rows=str(rows),
                                                             cols="35")
         except gspread.exceptions.APIError:
             attempt += 1
-            self.detailed_worksheet = self.sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Reservas Seller",
+            self.detailed_worksheet = self.sh.add_worksheet(title=f"{self.timestamp}-{attempt} | Reservas",
                                                             rows="2000", cols="35")
         finally:
-            self.merging_and_formatting()
             gsf.format_cell_range(self.detailed_worksheet, '1:1000', std_format)
             gsf.format_cell_range(self.detailed_worksheet, 'A', index_format)
             gsf.format_cell_range(self.detailed_worksheet, '1:2', index_format)
@@ -431,34 +479,33 @@ class ReservationsHandler:
             gsf.set_frozen(self.detailed_worksheet, rows=4, cols=1)
 
             gsf.set_row_height(self.detailed_worksheet, '1:1000', 24)
-            gsf.set_column_widths(self.detailed_worksheet, [('A', 150), ('B:O', 50), ('Q', 200), ('R:X', 100), ('Z', 200)])
+            gsf.set_column_widths(self.detailed_worksheet, [('A', 150), ('B:O', 50), ('Q', 225), ('R:X', 100), ('Z', 225)])
 
             self.detailed_worksheet.update('A1', [])
             self.detailed_worksheet.update('A2', [self.days_header])
             self.detailed_worksheet.update('A3', [self.weekdays])
-            self.detailed_worksheet.update('A4',
-                                           [detailed_output.columns.values.tolist()] + detailed_output.values.tolist())
-            # print("Successfully Created Detailed Worksheet")
 
-        attempt = 0
-        summary_worksheet = ''
-        # print("Creating Summary Worksheet")
 
         gsf.format_cell_range(self.detailed_worksheet, 'Q', index_format)
         gsf.format_cell_range(self.detailed_worksheet, 'Q4:X4', header_format)
-        self.detailed_worksheet.update("Q4", [summary_output.columns.values.tolist()] + summary_output.values.tolist())
 
         gsf.format_cell_range(self.detailed_worksheet, 'Z', index_format)
         gsf.format_cell_range(self.detailed_worksheet, 'Z4:AA4', header_format)
-        self.detailed_worksheet.update("Z4", [no_reservations.columns.values.tolist()] + no_reservations.values.tolist())
 
-        # print("Successfully Created Summary Worksheet")
+        self.sh.batch_update(copy_format(src_sheet_id=self.sh.worksheet("Layout").id,dest_sheet_id=self.detailed_worksheet.id))
+
+    def get_layout(self):
+        srcSpradsheet = self.gc.open("Layout Reservas")
+        srcSheetName = "Layout"
+        srcSheet = srcSpradsheet.worksheet(srcSheetName)
+
+    def update_calendar_values(self):
+
+        res_det = self.detailed_worksheet.update('A4', [self.detailed_output.columns.values.tolist()] + self.detailed_output.values.tolist())
+        res_sum = self.detailed_worksheet.update("Q4", [self.summary_output.columns.values.tolist()] + self.summary_output.values.tolist())
+        res_no = self.detailed_worksheet.update("Z4", [self.no_reservations_output.columns.values.tolist()] + self.no_reservations_output.values.tolist())
 
     def upload_raw(self):
-        self.sh = self.gc.open("Reservas Seller")
-
-        self.current_sheets_list = self.sh.worksheets()
-
         std_format = gsf.cellFormat(horizontalAlignment='CENTER', verticalAlignment='MIDDLE')
         header_format = gsf.cellFormat(backgroundColor=gsf.color(0.0455, 0.343, 0.6116),
                                        textFormat=gsf.textFormat(bold=True, fontSize=12,
@@ -467,7 +514,6 @@ class ReservationsHandler:
 
         attempt = 1
         raw_worksheet = ''
-        # print("Creating Raw Worksheet")
         try:
             self.raw_worksheet = self.sh.add_worksheet(title=f"{self.timestamp} | Lista", rows='4000', cols="15")
         except gspread.exceptions.APIError:
@@ -484,27 +530,48 @@ class ReservationsHandler:
             gsf.set_column_widths(self.raw_worksheet, [('A:O', 150), ('B', 200)])
 
             self.raw_worksheet.update([self.dataframe.columns.values.tolist()] + self.dataframe.values.tolist())
-            # print("Successfully Created Raw Worksheet")
 
-    def merging_and_formatting(self):
+    def merging_cells(self):
         merge_sheet_id = int(self.detailed_worksheet._properties['sheetId'])
         body = merge_days(merge_sheet_id)
         res = self.sh.batch_update(body)
-        # print(res)
 
+    def formatting_specific_cells(self):
         formatting_sheet_id = int(self.raw_worksheet._properties['sheetId'])
         formatting_body = formatting_sheet(formatting_sheet_id)
         res = self.sh.batch_update(formatting_body)
-        # print(res)
 
     def wipe_old_sheets(self, tabs_num):
-
-        if len(self.current_sheets_list) >= tabs_num:
-            # print("Deleting Old Tabs")
-            for sheet in self.current_sheets_list[-tabs_num:]:
+        if len(self.sh.worksheets()) >= tabs_num:
+            for sheet in self.sh.worksheets()[-tabs_num:]:
                 self.sh.del_worksheet(sheet)
-            # print("Old Tabs Deleted")
 
+    def wipe_single_sheet(self, nth):
+        if len(self.sh.worksheets()) > 1:
+            self.sh.del_worksheet(self.sh.worksheets()[nth])
 
 if __name__ == "__main__":
-    new_reservations = ReservationsHandler()
+    if datetime.datetime.today().weekday() == 4 or datetime.datetime.today().weekday() == 3:
+        start_time = time.time()
+        # time.sleep(660)
+        real_time_sheet = ReservationsHandler(sheet="Reservas Seller Real Time")
+        real_time_sheet.wipe_single_sheet(-2)
+        for i in range(500):
+            real_time_sheet.refresh_data()
+            wait_seconds = 60
+            new_update = time.time()
+            print("New Update at: %s" % (new_update))
+            if new_update - start_time < 240:
+                wait_seconds = 5
+            elif new_update - start_time < 900:
+                wait_seconds = 10
+            elif new_update - start_time < 1200:
+                wait_seconds = 60
+            elif new_update - start_time > 3600:
+                break
+
+            time.sleep(wait_seconds)
+        real_time_sheet.db_conn.close()
+        print("FINISHED IT")
+    else:
+        print("Hoje não é Sexta")
