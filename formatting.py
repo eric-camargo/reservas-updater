@@ -18,5 +18,3 @@ def formatting_sheet(sheet_id):
         ]
     }
     return formatting
-
-

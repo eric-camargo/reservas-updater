@@ -1,10 +1,11 @@
 import psycopg2
 import secrets
 
-
 # query_todas_reservas = "SELECT * from timetable_reservation"
 """res.date > CURRENT_TIMESTAMP + INTERVAL '2 days' AND """
 ''' AND res.deleted_at is NULL'''
+
+
 class Connect:
 
     def __init__(self, days):
@@ -21,7 +22,7 @@ class Connect:
                                 INNER JOIN core_user AS usr ON usr.id = res.user_id
                                 INNER JOIN explore_exploreobject AS obj ON res.exploreobject_id = obj.id
                                 WHERE res.created_at > CURRENT_TIMESTAMP - INTERVAL '%s days'
-                                ORDER BY Usuario ASC;""" % (days)
+                                ORDER BY Usuario ASC;""" % days
 
         self.pre_reservas = """SELECT seats.seats AS Vagas, 
                                 positions.title AS Posição, 

@@ -1,9 +1,9 @@
 PDV_TYPES = {
     'Atmosfera': 'PDV Estoque',
-    'Axis Triple Business': 'PDV Estoque',
     'Bourbon Country': 'PDV Estoque',
     'Float Residences': 'PDV Estoque',
     'Float Container': 'PDV Estoque',
+    'Medplex Eixo Norte': 'PDV Estoque',
     'Medplex Santana': 'PDV Estoque',
     'NY205': 'PDV Estoque',
     'Prime Altos do Germânia': 'PDV Estoque',
@@ -14,7 +14,6 @@ PDV_TYPES = {
     'Sede Seller': 'Online',
     'Shopping Iguatemi': 'PDV Estoque',
     'Skyline': 'PDV Estoque',
-    'The Park': 'PDV Lançamento',
     'Vintage Senior Residence': 'PDV Estoque',
     'Yoo Moinhos': 'PDV Estoque',
     'Zaffari Cabral': 'PDV Estoque'
@@ -23,5 +22,8 @@ PDV_TYPES = {
 PDVS_INATIVOS = {
     'The Arch': 'PDV Estoque',
     'Pirata Farnese': 'PDV Estoque',
+    'The Park': 'PDV Lançamento',
     'Quiosque Bodytech': 'PDV Estoque',
+    'Axis Triple Business': 'PDV Estoque',
+
 }
