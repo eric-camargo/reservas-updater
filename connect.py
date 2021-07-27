@@ -1,10 +1,6 @@
 import psycopg2
 import secrets
 
-# query_todas_reservas = "SELECT * from timetable_reservation"
-"""res.date > CURRENT_TIMESTAMP + INTERVAL '2 days' AND """
-''' AND res.deleted_at is NULL'''
-
 
 class Connect:
 
