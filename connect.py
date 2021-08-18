@@ -49,6 +49,8 @@ class Connect:
                                 ;"""
 
         self.connection = None
+
+        """Conecta no DB"""
         try:
             self.connection = psycopg2.connect(
                 host=secrets.pg_host,
@@ -62,7 +64,7 @@ class Connect:
             print(error)
 
     def query(self, query):
-        """ Connect to the PostgreSQL database server """
+        """Executa query no DB"""
         todas_reservas = None
         try:
             self.cursor.execute(query)
@@ -75,7 +77,7 @@ class Connect:
             return todas_reservas
 
     def close(self):
-        # close communication with the PostgreSQL
+        """close communication with the PostgreSQL"""
         self.cursor.close()
         if self.connection is not None:
             self.connection.close()

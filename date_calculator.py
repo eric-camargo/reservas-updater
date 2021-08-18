@@ -2,6 +2,7 @@ import datetime
 
 
 def get_next_week_from_monday(days_offset):
+    """Calcula quando inicia a próxima semana e retorna a lista com os dias no formato D/M/A"""
     week_list = []
     d = datetime.date.today()+datetime.timedelta(days_offset)
     print(d)

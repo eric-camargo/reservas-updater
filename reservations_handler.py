@@ -48,6 +48,7 @@ class ReservationsHandler:
         self.update_calendar_values()
 
     def refresh_data(self):
+        """Funções seguidas para cada atualização após a primeira iteração da tabela"""
         self.days_header = [""]
         self.get_current_time()
         self.data_handler()
@@ -56,6 +57,7 @@ class ReservationsHandler:
         self.update_calendar_values()
 
     def rename_sheet(self):
+        """Atualiza o nome da Tab da Planilha quando os dados são refreshed"""
         sheet_name = "%s | Reservas" % (self.timestamp)
         rename_body = rename_sheet(self.sh.worksheets()[-1].id, sheet_name)
         self.detailed_worksheet._properties['title'] = sheet_name
@@ -63,6 +65,7 @@ class ReservationsHandler:
         print(res)
 
     def get_current_time(self):
+        """Retorna Timestamp com o Formato correto para nomeação da Tab"""
         now = datetime.datetime.now()
         self.current_sheets_list = self.sh.worksheets()
         stamp = [datetime.datetime.strftime(now, '%d/%m %Hh%Mm%Ss'), time.time()]
@@ -70,7 +73,7 @@ class ReservationsHandler:
 
     def data_handler(self):
         """ Fetch Data from DB """
-        self.reservations_json = self.fetch_data()
+        self.reservations_json = self.fetch_data_from_DB()
         self.dataframe = self.make_dataframe()
         self.agents_list = self.get_agents()
 
@@ -79,11 +82,16 @@ class ReservationsHandler:
         self.pdv_capacity = self.capacity_calculation()
 
     def outputs_handler(self):
+        """Função que gera as 3 tabelas de informações.
+                Reservas por posição,
+                Resumo das reservas por Corretor e
+                Corretores sem Reserva"""
         self.detailed_output = self.detailed_reservations()
         self.summary_output = self.summary_reservations()
         self.no_reservations_output = self.no_reservations_broker()
 
-    def fetch_data(self):
+    def fetch_data_from_DB(self):
+        """Busca no DB o número de vagas por PDV e faz a query no DB """
         seats = self.db_conn.query(self.db_conn.pre_reservas)
         pd.set_option('display.max_rows', None)
         pd.set_option('display.max_columns', None)
@@ -103,6 +111,7 @@ class ReservationsHandler:
         return data
 
     def make_dataframe(self):
+        """Transforma o JSON do DB em Pandas Dataframe"""
         dataframe = pd.DataFrame.from_records(
             self.reservations_json,
             columns=[
@@ -118,6 +127,7 @@ class ReservationsHandler:
         return dataframe
 
     def get_agents(self):
+        """Agrupamento de todos Corretores retornados na Query para criação de seus objects"""
         agents = []
         agents_names = self.dataframe.groupby(['Corretor']).groups.keys()
         for agent_name in agents_names:
@@ -126,6 +136,7 @@ class ReservationsHandler:
         return agents
 
     def get_pdvs(self):
+        """Agrupamento de todos PDVs retornados na Query para criação de seus objects"""
         pdvs = []
         pdvs_names = self.dataframe.groupby(['Imóvel']).groups.keys()
         for pdv_name in pdvs_names:
@@ -134,6 +145,7 @@ class ReservationsHandler:
         return pdvs
 
     def get_days(self):
+        """Agrupamento de todos dias retornados na Query para criação de seus objects"""
         days_list = []
         days = self.dataframe.groupby(['Data do Turno']).groups.keys()
         for day in days:
@@ -142,6 +154,7 @@ class ReservationsHandler:
         return days_list
 
     def create_reservations_objects(self):
+        """Cria os Objects das Reservas para serem tratados depois na criação do Dataframe"""
         reservations = []
         for index, row in self.dataframe.iterrows():
             res_id = row['ID']
@@ -158,8 +171,8 @@ class ReservationsHandler:
         return reservations
 
     def populate_table(self, times):
+        """Retorna um Dictionary com as reservas de cada PDV por Turno para ser transformado em Dataframe"""
         pdv_reservations = {}
-        '''Colocar um if para pegar o caso onde o PDV seja SEDE SELLER, mas sem aceitar POSIÇÃO TELEFONE'''
         for pdv in self.pdvs:
             if pdv != "Sede Seller":
                 day_reservations = {}
@@ -201,6 +214,7 @@ class ReservationsHandler:
         return pdv_reservations
 
     def capacity_calculation(self):
+        """Retorna o número de vagas por posição"""
         capacity = {}
         sede_reservations = self.populate_table(self.shift_times_sede)
 
@@ -235,6 +249,7 @@ class ReservationsHandler:
         return capacity
 
     def make_header(self):
+        """Tratamento do Header principal das Reservas"""
         header = []
         self.days_header = [""]
         self.shifts_header = []
@@ -249,6 +264,7 @@ class ReservationsHandler:
         return header
 
     def detailed_reservations(self):
+        """Gera a tabela principal com cada reserva"""
         header = self.make_header()
         self.reservations_detailed = None
         self.reservations_detailed = pd.DataFrame(columns=["Imóvel", *header])
@@ -300,6 +316,7 @@ class ReservationsHandler:
         return self.reservations_detailed
 
     def get_sede_reservations(self):
+        """Tratamento das reservas feitas na Sede Seller para poder tratar os 3 turnos de maneira diferente"""
         sede_reservations = self.populate_table(self.shift_times_sede)
 
         sede_res = sede_reservations["Sede Seller"]
@@ -369,6 +386,7 @@ class ReservationsHandler:
         return sede
 
     def summary_reservations(self):
+        """Gera o Resumo de número de Reservas por Corretor"""
         agents_list = self.dataframe.groupby(['Corretor']).groups.keys()
         summary_count = self.dataframe.groupby(['Corretor', 'Posição'], as_index=False)[['Turno']].count()
         positions_raw = self.dataframe.groupby(['Posição']).groups.keys()
@@ -394,6 +412,7 @@ class ReservationsHandler:
         return agents_summary
 
     def no_reservations_broker(self):
+        """Gera o Resumo de todos corretores que não fizeram reserva nenhuma"""
         agents_list = self.dataframe.groupby(['Corretor']).groups.keys()
         brokers = []
         for a in agents_list:
@@ -412,7 +431,7 @@ class ReservationsHandler:
         return no_reservation_brokers
 
     def calendar_formatting(self):
-
+        """Ajustes de Formatação da Planilha"""
         rows = 2000
 
         std_format = gsf.cellFormat(horizontalAlignment='CENTER', verticalAlignment='MIDDLE')
@@ -458,12 +477,13 @@ class ReservationsHandler:
             copy_format(src_sheet_id=self.sh.worksheet("Layout").id, dest_sheet_id=self.detailed_worksheet.id))
 
     def get_layout(self):
+        """Copia e cola o Layout da Tab LAYOUT RESERVAS"""
         srcSpradsheet = self.gc.open("Layout Reservas")
         srcSheetName = "Layout"
         srcSheet = srcSpradsheet.worksheet(srcSheetName)
 
     def update_calendar_values(self):
-
+        """Realiza a atualização dos dados mas sem precisar refazer a formatação que é feita na primeira iteração"""
         res_det = self.detailed_worksheet.update('A4', [
             self.detailed_output.columns.values.tolist()] + self.detailed_output.values.tolist())
         res_sum = self.detailed_worksheet.update("Q4", [
@@ -472,6 +492,7 @@ class ReservationsHandler:
             self.no_reservations_output.columns.values.tolist()] + self.no_reservations_output.values.tolist())
 
     def upload_raw(self):
+        """Código antigo (Não utilizado)"""
         std_format = gsf.cellFormat(horizontalAlignment='CENTER', verticalAlignment='MIDDLE')
         header_format = gsf.cellFormat(backgroundColor=gsf.color(0.0455, 0.343, 0.6116),
                                        textFormat=gsf.textFormat(bold=True, fontSize=12,
@@ -499,20 +520,24 @@ class ReservationsHandler:
             self.raw_worksheet.update([self.dataframe.columns.values.tolist()] + self.dataframe.values.tolist())
 
     def merging_cells(self):
+        """Merge de células por código do Google API"""
         merge_sheet_id = int(self.detailed_worksheet._properties['sheetId'])
         body = merge_days(merge_sheet_id)
         res = self.sh.batch_update(body)
 
     def formatting_specific_cells(self):
+        """Formatação das células por código do Google API"""
         formatting_sheet_id = int(self.raw_worksheet._properties['sheetId'])
         formatting_body = formatting_sheet(formatting_sheet_id)
         res = self.sh.batch_update(formatting_body)
 
     def wipe_old_sheets(self, tabs_num):
+        """Deleta múltiplas tabs. (Não é utilizado)"""
         if len(self.sh.worksheets()) >= tabs_num:
             for sheet in self.sh.worksheets()[-tabs_num:]:
                 self.sh.del_worksheet(sheet)
 
     def wipe_single_sheet(self, nth):
+        """Deleta a última tab da Planilha"""
         if len(self.sh.worksheets()) > 1:
             self.sh.del_worksheet(self.sh.worksheets()[nth])

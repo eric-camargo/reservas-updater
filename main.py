@@ -5,6 +5,7 @@ from reservations_handler import ReservationsHandler
 
 
 def reservation_script():
+    """Começa a rodar as reservas e atualiza elas a cada X segundos por 25 minutos"""
     start_time = time.time()
     real_time_sheet = ReservationsHandler(sheet="Reservas Seller Real Time")
     real_time_sheet.wipe_single_sheet(-2)
@@ -22,7 +23,7 @@ def reservation_script():
             wait_seconds = 9 + elapsed * 0.01
         elif elapsed < 1200:
             wait_seconds = 12 + elapsed * 0.01
-        elif elapsed > 3600:
+        elif elapsed > 1500:
             break
 
         time.sleep(wait_seconds)
@@ -31,6 +32,7 @@ def reservation_script():
 
 
 def check_if_reservation_day():
+    """Confere se é sexta para poder rodar"""
     if datetime.datetime.today().weekday() == 4 or datetime.datetime.today().weekday() == 3:
         reservation_script()
     else:

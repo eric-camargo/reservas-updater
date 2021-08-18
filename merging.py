@@ -1,5 +1,5 @@
 def merge_days(sheet_id):
-
+    """Código do Google API para fazer Merge das células do Header"""
     START_ROW = 1
     END_ROW = 3
 
